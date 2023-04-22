@@ -142,7 +142,7 @@ def mqtt_relay(env):
         preheating = False
         for obj in body:
             cmdtype = obj["commandType"]
-            if cmdtype == 1001:
+            if cmdtype == 1001 and "progress" in obj and obj["progress"] > 0:
                 printing = True
             # heatbed target temp > 0 if preheating
             if cmdtype == 1004 and obj["targetTemp"] > 0:
