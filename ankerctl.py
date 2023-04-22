@@ -26,6 +26,9 @@ from libflagship.mqtt import MqttMsgType
 from libflagship.pppp import PktLanSearch, P2PCmdType, P2PSubCmdType, FileTransfer
 from libflagship.ppppapi import AnkerPPPPApi, FileUploadInfo, PPPPError
 
+import paho.mqtt.client as mqttClient
+from paho.mqtt.properties import Properties
+from paho.mqtt.packettypes import PacketTypes 
 
 class Environment:
     def __init__(self):
@@ -113,6 +116,43 @@ def mqtt_monitor(env):
             except:
                 print(f"  {obj}")
 
+@mqtt.command("relay")
+@pass_env
+def mqtt_relay(env):
+    """
+    Connect to mqtt broker, and relay message to broker used with ha.
+    """
+
+    config  = open("examples/config.json")
+    config_data = json.load(config)
+
+    client = cli.mqtt.mqtt_open(env)
+    
+    clientBroker = mqttClient.Client()
+    clientBroker.username_pw_set(config_data["user"], config_data["passwd"])
+    clientBroker.connect(config_data["host"], port=config_data["port"],keepalive=60)
+    clientBroker.loop_start()
+    log.info(f"Relaying mqtt message to mqtt broker")
+
+    for msg, body in client.fetchloop():
+        log.debug(f"TOPIC [{msg.topic}]")
+        log.debug(enhex(msg.payload[:]))
+
+        printing = False
+        preheating = False
+        for obj in body:
+            cmdtype = obj["commandType"]
+            if cmdtype == 1001:
+                printing = True
+            # heatbed target temp > 0 if preheating
+            if cmdtype == 1004 and obj["targetTemp"] > 0:
+                preheating = True
+        
+        properties=Properties(PacketTypes.PUBLISH)
+        properties.MessageExpiryInterval=30 # in seconds
+        log.info(f"Ankermake printing" if printing else f"Ankermake preheating" if preheating else f"Ankermake idle")
+        mqtt_topic = "ankermake/printing" if printing else f"ankermake/preheating" if preheating else "ankermake/idle"
+        clientBroker.publish(mqtt_topic, "")
 
 @mqtt.command("send")
 @click.argument("command-type", type=cli.util.EnumType(MqttMsgType), required=True, metavar="<cmd>")
