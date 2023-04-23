@@ -151,8 +151,8 @@ def mqtt_relay(env):
         properties=Properties(PacketTypes.PUBLISH)
         properties.MessageExpiryInterval=30 # in seconds
         log.info(f"Ankermake printing" if printing else f"Ankermake preheating" if preheating else f"Ankermake idle")
-        mqtt_topic = "ankermake/printing" if printing else f"ankermake/preheating" if preheating else "ankermake/idle"
-        clientBroker.publish(mqtt_topic, "")
+        clientBroker.publish(config_data["topic"], "online")
+        clientBroker.publish(config_data["topic"], "ON" if printing or preheating else "OFF", qos=1, retain=False)
 
 @mqtt.command("send")
 @click.argument("command-type", type=cli.util.EnumType(MqttMsgType), required=True, metavar="<cmd>")
